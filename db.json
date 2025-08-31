@@ -6,6 +6,13 @@
       "email": "test@test.com",
       "password": "121212",
       "todos": []
+    },
+    {
+      "id": "2c81",
+      "username": "baraa2",
+      "email": "baraamoh901@gmail.com",
+      "password": "121212",
+      "todos": []
     }
   ]
 }

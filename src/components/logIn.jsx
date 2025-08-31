@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { FaEyeSlash, FaEye } from 'react-icons/fa';
 import { IoMdArrowRoundBack } from 'react-icons/io';
-import { loginUser } from '../api/userService';
 
 function LogIn() {
     const [formValues, setFormValues] = useState({ username: '', password: '' });
@@ -25,29 +24,24 @@ function LogIn() {
         return Object.keys(errors).length === 0;
     };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!validateForm()) return;
-    setIsLoading(true);
+    const users = JSON.parse(localStorage.getItem("users")) || [];
+    const user = users.find(
+        (u) =>
+        u.username === formValues.username && u.password === formValues.password
+    );
 
-    try {
-        setFormErrors({});
-        const user = await loginUser(formValues.username, formValues.password);
-
-        if (!user) {
-            toast.error("Invalid username/email or password");
-            return;
-        }
-        toast.success(`Hello, ${user.username}!`);
-        navigate('/ToDo');
-
-    } catch (error) {
-        console.error('Login error:', error);
-        toast.error("Login failed. Please try again.");
-    } finally {
-        setIsLoading(false);
+    if (!user) {
+        toast.error("Invalid username or password");
+        return;
     }
+    setIsLoading(true);
+    localStorage.setItem("loggedInUser", JSON.stringify(user));
+    toast.success(`Welcome back, ${user.username}!`);
+    navigate("/todo");
+    setIsLoading(false);
 };
 
 
@@ -124,7 +118,7 @@ function LogIn() {
 
                 <button 
                         type="submit"
-                        disapled={isLoading}
+                        disabled={isLoading}
                         className={isLoading ? "w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 opacity-50" 
                                             : "w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2"}
                     >
@@ -143,7 +137,7 @@ function LogIn() {
                     </button>
                 <div className="mt-2">
                     Doesn't have an account? 
-                    <Link className="text-blue-700 font-bold hover:underline" to="/signUp"> SignUp</Link>
+                    <Link className="text-blue-700 font-bold hover:underline" to="/signup"> SignUp</Link>
                 </div>
             </form>
         </div>

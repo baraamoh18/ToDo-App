@@ -3,7 +3,6 @@ import { useNavigate, Link } from "react-router-dom";
 import { toast } from 'react-toastify';
 import { FaEyeSlash, FaEye } from 'react-icons/fa';
 import { IoMdArrowRoundBack } from 'react-icons/io';
-import { createUser, getUsers } from './../api/userService';
 
 function SignUp() {
     const navigate = useNavigate();
@@ -55,72 +54,46 @@ function SignUp() {
         return errors;
     }
 
-   const checkUserExist = async (username, email) => {
-    try {
-        const users = await getUsers();
-        const usernameExists = users.find(u => u.username === username);
-        const emailExists = users.find(u => u.email === email);
+    const handleSubmit = (e) => {
+        e.preventDefault();
 
-        return { usernameExists, emailExists };
-    } catch (error) {
-        console.error('Error checking user existence:', error);
-        throw error;
-    }
-};
-
-const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    const errors = handleErrors(formValues);
-    setFormErrors(errors);
-
-    if (Object.keys(errors).length > 0) {
-        return;
-    }
-    
-    setIsLoading(true);
-
-    try {
-        const { usernameExists, emailExists } = await checkUserExist(
-            formValues.username,
-            formValues.email
-        );
-
-        const newErrors = {};
-
-        if (usernameExists) {
-            newErrors.username = 'Username already exists';
-            toast.error("User already exists with this username");
-        }
-
-        if (emailExists) {
-            newErrors.email = 'Email already exists';
-            toast.error("User already exists with this email");
-        }
+        const newErrors = handleErrors(formValues);
 
         if (Object.keys(newErrors).length > 0) {
             setFormErrors(newErrors);
             return;
         }
 
-        const newUser = await createUser(formValues);
+        const users = JSON.parse(localStorage.getItem("users")) || [];
 
-        if (newUser) {
-            toast.success(`${formValues.username} you are signed up successfully!`)
-            setFormValues(initialValues);
-            setFormErrors({});
-            navigate('/logIn');
+        if (users.find((u) => u.username === formValues.username)) {
+            setFormErrors({ username: 'Username already exists' });
+            toast.error("User already exists with this username");
+            return;
         }
 
-    } catch (error) { 
-        console.error('Error during signup:', error);
-        toast.error("Something went wrong! Please try again.");
-    } finally {
-        setIsLoading(false);
-    }
-};
+        if (users.find((u) => u.email === formValues.email)) {
+            setFormErrors({ email: 'Email already exists' });
+            toast.error("User already exists with this email");
+            return;
+        }
 
+        setIsLoading(true);
 
+        users.push({
+            username: formValues.username,
+            email: formValues.email,
+            password: formValues.password
+        });
+
+        localStorage.setItem("users", JSON.stringify(users));
+
+        toast.success(`${formValues.username}, you are signed up successfully!`);
+
+        setFormValues(initialValues);
+        setFormErrors({});
+        navigate('/login');
+    };
 
     return (
         <>
@@ -191,7 +164,7 @@ const handleSubmit = async (e) => {
                     </div>
                     <button 
                         type="submit"
-                        disapled={isLoading}
+                        disabled={isLoading}
                         className={isLoading ? "w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 opacity-50" 
                                             : "w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2"}
                     >

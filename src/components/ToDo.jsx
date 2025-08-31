@@ -1,6 +1,5 @@
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { addUserTodo, deleteUserTodo, todoCompletion, updateUserTodo, getUserTodos } from "../api/userService";
 
 function ToDo() {
   const [todos, setTodos] = useState([]);
@@ -13,16 +12,16 @@ function ToDo() {
   const [isChecking, setIsChecking] = useState(true);
   const navigate = useNavigate();
 
-
-    useEffect(() => {
-    const userData = localStorage.getItem('user');
+  useEffect(() => {
+    const userData = localStorage.getItem("loggedInUser");
 
     try {
       const parsedUser = JSON.parse(userData);
-      if (!parsedUser || !parsedUser.id) {
+      if (!parsedUser) {
         navigate("/login");
       } else {
         setUser(parsedUser);
+        setTodos(parsedUser.todos || []);
       }
     } catch {
       navigate("/login");
@@ -31,29 +30,7 @@ function ToDo() {
     }
   }, [navigate]);
 
-    useEffect(() => {
-    const fetchTodos = async () => {
-      try {
-        setLoading(true);
-        const userTodos = await getUserTodos(user.id);
-        setTodos(userTodos);
-      } catch (err) {
-        console.error("Failed to fetch todos:", err);
-        setError("Failed to load todos. Please try again.");
-        
-        const savedTodos = localStorage.getItem(`todos_${user.id}`);
-        if (savedTodos) {
-          setTodos(JSON.parse(savedTodos));
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    if (user?.id) fetchTodos();
-  }, [user?.id]);
-
-  if (isChecking) {
+   if (isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p>Checking user...</p>
@@ -65,13 +42,27 @@ function ToDo() {
     return null;
   }
 
-  const filteredTodos = todos.filter(todo => {
+  const saveTodosToUser = (updatedTodos) => {
+    setTodos(updatedTodos);
+
+    const updatedUser = { ...user, todos: updatedTodos };
+    setUser(updatedUser);
+    localStorage.setItem("loggedInUser", JSON.stringify(updatedUser));
+
+    const users = JSON.parse(localStorage.getItem("users")) || [];
+    const updatedUsers = users.map((u) =>
+      u.username === user.username ? updatedUser : u
+    );
+    localStorage.setItem("users", JSON.stringify(updatedUsers));
+  };
+
+  const filteredTodos = todos.filter((todo) => {
     if (filter === "active") return !todo.completed;
     if (filter === "completed") return todo.completed;
     return true;
   });
 
-  const handleAdd = async () => {
+  const handleAdd = () => {
     if (!inputRef.current.value.trim()) {
       inputRef.current.placeholder = "Please type something...";
       inputRef.current.focus();
@@ -84,21 +75,11 @@ function ToDo() {
       completed: false,
     };
 
-    try {
-      const updatedTodos = await addUserTodo(user.id, newTodo);
-      setTodos(updatedTodos);
-      inputRef.current.value = "";
-      inputRef.current.placeholder = "Add a new task...";
-      
-      localStorage.setItem(`todos_${user.id}`, JSON.stringify(updatedTodos));
-    } catch (err) {
-      console.error("Error adding todo:", err);
-      setError("Failed to add todo. Please try again.");
-      
-      const newTodos = [...todos, newTodo];
-      setTodos(newTodos);
-      localStorage.setItem(`todos_${user.id}`, JSON.stringify(newTodos));
-    }
+    const updatedTodos = [...todos, newTodo];
+    saveTodosToUser(updatedTodos);
+
+    inputRef.current.value = "";
+    inputRef.current.placeholder = "Add a new task...";
   };
 
   const activateEdit = (id) => {
@@ -108,82 +89,30 @@ function ToDo() {
     setEditingId(id);
     inputRef.current.focus();
   };
-  
-  const handleDone = async (id) => {
-    const todo = todos.find((t) => t.id === id);
-    if (!todo) return;
 
-    try {
-      await todoCompletion(user.id, id, !todo.completed);
-      setTodos((prev) =>
-        prev.map((t) =>
-          t.id === id ? { ...t, completed: !t.completed } : t
-        )
-      );
-      
-      const updatedTodos = todos.map(t => 
-        t.id === id ? { ...t, completed: !t.completed } : t
-      );
-      localStorage.setItem(`todos_${user.id}`, JSON.stringify(updatedTodos));
-    } catch (err) {
-      console.error("Error updating completion:", err);
-      setError("Failed to update todo. Please try again.");
-      
-      const updatedTodos = todos.map(t => 
-        t.id === id ? { ...t, completed: !t.completed } : t
-      );
-      setTodos(updatedTodos);
-      localStorage.setItem(`todos_${user.id}`, JSON.stringify(updatedTodos));
-    }
+  const handleDone = (id) => {
+    const updatedTodos = todos.map((t) =>
+      t.id === id ? { ...t, completed: !t.completed } : t
+    );
+    saveTodosToUser(updatedTodos);
   };
 
-  const handleDelete = async (id) => {
-    try {
-      await deleteUserTodo(user.id, id);
-      setTodos((prev) => prev.filter((t) => t.id !== id));
-      
-      const updatedTodos = todos.filter(t => t.id !== id);
-      localStorage.setItem(`todos_${user.id}`, JSON.stringify(updatedTodos));
-    } catch (err) {
-      console.error("Error deleting todo:", err);
-      setError("Failed to delete todo. Please try again.");
-      
-      const updatedTodos = todos.filter(t => t.id !== id);
-      setTodos(updatedTodos);
-      localStorage.setItem(`todos_${user.id}`, JSON.stringify(updatedTodos));
-    }
+  const handleDelete = (id) => {
+    const updatedTodos = todos.filter((t) => t.id !== id);
+    saveTodosToUser(updatedTodos);
   };
 
-  const handleUpdate = async () => {
+  const handleUpdate = () => {
     if (editingId === null || !inputRef.current.value.trim()) return;
 
     const newValue = inputRef.current.value.trim();
-    try {
-      await updateUserTodo(user.id, editingId, {value: newValue});
-      setTodos((prev) =>
-        prev.map((t) =>
-          t.id === editingId ? { ...t, value: newValue } : t
-        )
-      );
-      setEditingId(null);
-      inputRef.current.value = "";
-      
-      const updatedTodos = todos.map(t => 
-        t.id === editingId ? { ...t, value: newValue } : t
-      );
-      localStorage.setItem(`todos_${user.id}`, JSON.stringify(updatedTodos));
-    } catch (err) {
-      console.error("Error updating todo:", err);
-      setError("Failed to update todo. Please try again.");
-      
-      const updatedTodos = todos.map(t => 
-        t.id === editingId ? { ...t, value: newValue } : t
-      );
-      setTodos(updatedTodos);
-      localStorage.setItem(`todos_${user.id}`, JSON.stringify(updatedTodos));
-      setEditingId(null);
-      inputRef.current.value = "";
-    }
+    const updatedTodos = todos.map((t) =>
+      t.id === editingId ? { ...t, value: newValue } : t
+    );
+    saveTodosToUser(updatedTodos);
+
+    setEditingId(null);
+    inputRef.current.value = "";
   };
 
   const onEnter = (e) => {
@@ -192,17 +121,12 @@ function ToDo() {
     }
   };
 
-  const clearError = () => {
-    setError("");
-  };
-
-  const activeTodosCount = todos.filter(todo => !todo.completed).length;
-
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('userId');
-    navigate('/login');
+    localStorage.removeItem("loggedInUser");
+    navigate("/login");
   };
+
+  const activeTodosCount = todos.filter((todo) => !todo.completed).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br flex items-center justify-center p-4">
@@ -328,12 +252,11 @@ function ToDo() {
             </span>
             <button
               onClick={() => {
-                const completedTodos = todos.filter(todo => todo.completed);
-                if (completedTodos.length > 0) {
-                  completedTodos.forEach(todo => handleDelete(todo.id));
-                }
-              }}
-              disabled={loading || todos.filter(todo => todo.completed).length === 0}
+              const updatedTodos = todos.filter(todo => !todo.completed); 
+              saveTodosToUser(updatedTodos); // update in one go
+            }}
+            disabled={loading || todos.filter(todo => todo.completed).length === 0}
+
               className="px-4 py-2 text-sm text-red-500 hover:text-red-700 font-medium disabled:opacity-50 transition-colors"
             >
               Clear completed

@@ -14,7 +14,7 @@ Easily manage your daily tasks with an intuitive UI and smooth navigation.
 ---
 
 ## 🛠️ Tech Stack
-- ⚛️ React  
+- ⚛️ React.js
 - 🎨 Tailwind CSS  
 - 🛤️ React Router  
 
